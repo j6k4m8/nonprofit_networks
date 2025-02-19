@@ -306,6 +306,11 @@ class ProPublicaClient:
             )
             self._debug(f"Getting XML file from {url}")
             response = httpx.get(url)
+            # If status is 301, follow the redirect
+            if response.status_code == 301:
+                url = response.headers["Location"]
+                self._debug(f"Following redirect to {url}")
+                response = httpx.get(url)
             response.raise_for_status()
 
             # Find all "a.btn" where href starts with /nonprofits/download-xml

@@ -59,10 +59,10 @@ class SigningOfficerGrp_(BaseModel):
 
 
 class PreparerPersonGrp_(BaseModel):
-    PreparerPersonNm: str
+    PreparerPersonNm: Optional[str] = None
     PTIN: str
     PhoneNum: str
-    PreparationDt: str
+    PreparationDt: Optional[str] = None
 
 
 class TrustedCustomerGrp_(BaseModel):
@@ -85,7 +85,7 @@ class ReturnHeader_(BaseModel):
     Filer: Filer_
     BusinessOfficerGrp: BusinessOfficerGrp_
     SigningOfficerGrp: Optional[SigningOfficerGrp_] = None
-    IRSResponsiblePrtyInfoCurrInd: str
+    IRSResponsiblePrtyInfoCurrInd: Optional[str] = None
     PreparerPersonGrp: PreparerPersonGrp_
     AdditionalFilerInformation: Optional[AdditionalFilerInformation_] = None
     TaxYr: str
@@ -292,7 +292,9 @@ class IRS990_(BaseModel):
     ContractorCompensationGrp: Optional[
         Union[List[ContractorCompensationGrp_], ContractorCompensationGrp_]
     ] = None
-    ProgramServiceRevenueGrp: Optional[ProgramServiceRevenueGrp_] = None
+    ProgramServiceRevenueGrp: Optional[
+        ProgramServiceRevenueGrp_ | List[ProgramServiceRevenueGrp_]
+    ] = None
 
     @field_validator(
         "GrossReceiptsAmt",
@@ -329,13 +331,13 @@ class IRS990ScheduleD_(BaseModel):
     documentId: str = Field(alias="@documentId")
     LandGrp: Optional[Dict[str, Any]] = None
     BuildingsGrp: Optional[Dict[str, Any]] = None
-    EquipmentGrp: Dict[str, Any]
-    TotalBookValueLandBuildingsAmt: str
+    EquipmentGrp: Optional[Dict[str, Any]] = None
+    TotalBookValueLandBuildingsAmt: Optional[str] = None
 
 
 class IRS990ScheduleJ_(BaseModel):
     documentId: str = Field(alias="@documentId")
-    CompensationCommitteeInd: str
+    CompensationCommitteeInd: Optional[str] = None
     SeverancePaymentInd: str
     SupplementalNonqualRtrPlanInd: str
 
@@ -643,4 +645,17 @@ class FullFiling(BaseModel):
             self.Return.ReturnData.IRS990.ActivityOrMissionDesc
             if self.Return.ReturnData.IRS990
             else None
+        )
+
+    def get_name(self):
+        """
+        Get the name of the organization from the 990 form.
+
+        Returns:
+            str: Name of the organization
+        """
+        return self.Return.ReturnHeader.Filer.BusinessName.BusinessNameLine1Txt + (
+            self.Return.ReturnHeader.Filer.BusinessName.BusinessNameLine2Txt
+            if self.Return.ReturnHeader.Filer.BusinessName.BusinessNameLine2Txt
+            else ""
         )
