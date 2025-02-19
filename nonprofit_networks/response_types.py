@@ -2,6 +2,16 @@ from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field, field_validator
 
 
+def convert_amount_to_float(v):
+    """Convert a value to float, returning 0.0 if conversion fails."""
+    if v is None:
+        return 0.0
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return v
+
+
 class Address_(BaseModel):
     AddressLine1Txt: str
     CityNm: str
@@ -99,13 +109,8 @@ class Post2017NOLCarryoverGrp_(BaseModel):
 
     @field_validator("AvlblPost2017NOLCarryoverAmt", mode="before")
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amount(cls, v):
+        return convert_amount_to_float(v)
 
 
 class NetOperatingLossDeductionAmt_(BaseModel):
@@ -114,13 +119,8 @@ class NetOperatingLossDeductionAmt_(BaseModel):
 
     @field_validator("text", mode="before")
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amount(cls, v):
+        return convert_amount_to_float(v)
 
 
 class IRS990T_(BaseModel):
@@ -229,13 +229,8 @@ class Form990PartVIISectionAGrp_(BaseModel):
         mode="before",
     )
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amounts(cls, v):
+        return convert_amount_to_float(v)
 
 
 class ContractorCompensationGrp_(BaseModel):
@@ -246,13 +241,8 @@ class ContractorCompensationGrp_(BaseModel):
 
     @field_validator("CompensationAmt", mode="before")
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amount(cls, v):
+        return convert_amount_to_float(v)
 
 
 class ProgramServiceRevenueGrp_(BaseModel):
@@ -265,13 +255,8 @@ class ProgramServiceRevenueGrp_(BaseModel):
         "TotalRevenueColumnAmt", "RelatedOrExemptFuncIncomeAmt", mode="before"
     )
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amounts(cls, v):
+        return convert_amount_to_float(v)
 
 
 class IRS990_(BaseModel):
@@ -328,13 +313,8 @@ class IRS990_(BaseModel):
         mode="before",
     )
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amounts(cls, v):
+        return convert_amount_to_float(v)
 
     class Config:
         extra = "allow"
@@ -401,15 +381,8 @@ class TransactionsRelatedOrgGrp_(BaseModel):
 
     @field_validator("InvolvedAmt", mode="before")
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
-
-    InvolvedAmt: Union[str, float]
+    def validate_amount(cls, v):
+        return convert_amount_to_float(v)
 
 
 class IRS990ScheduleR_(BaseModel):
@@ -453,13 +426,8 @@ class RecipientTable_(BaseModel):
 
     @field_validator("CashGrantAmt", "NonCashAssistanceAmt", mode="before")
     @classmethod
-    def convert_amount_to_float(cls, v):
-        if v is None:
-            return 0.0
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            return v
+    def validate_amounts(cls, v):
+        return convert_amount_to_float(v)
 
 
 class SupplementalInformationDetail_(BaseModel):
