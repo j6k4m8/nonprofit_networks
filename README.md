@@ -54,6 +54,7 @@ See also,
 | ------------------------------- | ------------------------------------------------------ |
 | `get_compensations`             | Get a list of all reported compensation to staff/board |
 | `get_contractor_compensation`   | Get a list of all reported compensation to contractors |
+| `get_grant_recipients`          | Get a list of all grant recipients (including EINs)    |
 | `get_total_revexp`              | Get the total revenue and expenses                     |
 | `get_net_assets`                | Get the net assets                                     |
 | `get_rent_income`               | Get a list of rent income                              |

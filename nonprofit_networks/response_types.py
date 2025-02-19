@@ -438,6 +438,44 @@ class IRS990ScheduleR_(BaseModel):
     TransactionsRelatedOrgGrp: Optional[List[TransactionsRelatedOrgGrp_]] = None
 
 
+class RecipientBusinessName_(BaseModel):
+    BusinessNameLine1Txt: str
+
+
+class RecipientTable_(BaseModel):
+    RecipientBusinessName: RecipientBusinessName_
+    USAddress: Address_
+    RecipientEIN: Optional[str] = None
+    IRCSectionDesc: str
+    CashGrantAmt: Union[str, float]
+    NonCashAssistanceAmt: Union[str, float]
+    PurposeOfGrantTxt: str
+
+    @field_validator("CashGrantAmt", "NonCashAssistanceAmt", mode="before")
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+
+class SupplementalInformationDetail_(BaseModel):
+    FormAndLineReferenceDesc: str
+    ExplanationTxt: str
+
+
+class IRS990ScheduleI_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    GrantRecordsMaintainedInd: str
+    RecipientTable: Union[List[RecipientTable_], RecipientTable_]
+    Total501c3OrgCnt: str
+    TotalOtherOrgCnt: str
+    SupplementalInformationDetail: Optional[SupplementalInformationDetail_] = None
+
+
 class ReturnData_(BaseModel):
     documentCnt: str = Field(alias="@documentCnt")
     IRS990: Optional[IRS990_] = None
@@ -447,6 +485,7 @@ class ReturnData_(BaseModel):
     IRS990ScheduleR: Optional[IRS990ScheduleR_] = None
     IRS990T: Optional[IRS990T_] = None
     IRS990TScheduleA: Optional[List[IRS990TScheduleA_]] = None
+    IRS990ScheduleI: Optional[IRS990ScheduleI_] = None
 
     # Allow anything to be missing
     class Config:
@@ -609,6 +648,21 @@ class FullFiling(BaseModel):
             and self.Return.ReturnData.IRS990ScheduleR.TransactionsRelatedOrgGrp
             else []
         )
+
+    def get_grant_recipients(self):
+        """
+        Get a list of all grant recipients from Schedule I of the 990 form.
+
+        Returns:
+            List[RecipientTable_]: List of grant recipients
+        """
+        if not self.Return.ReturnData.IRS990ScheduleI:
+            return []
+
+        recipients = self.Return.ReturnData.IRS990ScheduleI.RecipientTable
+        if isinstance(recipients, list):
+            return recipients
+        return [recipients]
 
     def get_description(self):
         """
