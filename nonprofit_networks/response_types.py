@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -179,10 +179,103 @@ class IRS990TScheduleA_(BaseModel):
         extra = "allow"
 
 
+class Form990PartVIISectionAGrp_(BaseModel):
+    PersonNm: str
+    TitleTxt: str
+    AverageHoursPerWeekRt: str
+    AverageHoursPerWeekRltdOrgRt: Optional[str] = None
+    IndividualTrusteeOrDirectorInd: Optional[str] = None
+    OfficerInd: Optional[str] = None
+    KeyEmployeeInd: Optional[str] = None
+    HighestCompensatedEmployeeInd: Optional[str] = None
+    ReportableCompFromOrgAmt: str
+    ReportableCompFromRltdOrgAmt: str
+    OtherCompensationAmt: str
+
+
+class ContractorCompensationGrp_(BaseModel):
+    ContractorName: Dict[str, Any]
+    ContractorAddress: Dict[str, Any]
+    ServicesDesc: str
+    CompensationAmt: str
+
+
+class ProgramServiceRevenueGrp_(BaseModel):
+    Desc: str
+    BusinessCd: str
+    TotalRevenueColumnAmt: str
+    RelatedOrExemptFuncIncomeAmt: str
+
+
+class IRS990_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    PrincipalOfficerNm: str
+    USAddress: Address_
+    GrossReceiptsAmt: str
+    Organization501c3Ind: str
+    WebsiteAddressTxt: str
+    TypeOfOrganizationCorpInd: str
+    FormationYr: str
+    LegalDomicileStateCd: str
+    ActivityOrMissionDesc: str
+    VotingMembersGoverningBodyCnt: str
+    VotingMembersIndependentCnt: str
+    TotalEmployeeCnt: str
+    TotalVolunteersCnt: str
+    CYContributionsGrantsAmt: str
+    CYProgramServiceRevenueAmt: str
+    CYInvestmentIncomeAmt: str
+    CYOtherRevenueAmt: str
+    CYTotalRevenueAmt: str
+    CYGrantsAndSimilarPaidAmt: str
+    CYSalariesCompEmpBnftPaidAmt: str
+    CYTotalFundraisingExpenseAmt: str
+    CYOtherExpensesAmt: str
+    CYTotalExpensesAmt: str
+    CYRevenuesLessExpensesAmt: str
+    TotalAssetsEOYAmt: str
+    TotalLiabilitiesEOYAmt: str
+    NetAssetsOrFundBalancesEOYAmt: str
+    Form990PartVIISectionAGrp: List[Form990PartVIISectionAGrp_]
+    ContractorCompensationGrp: List[ContractorCompensationGrp_]
+    ProgramServiceRevenueGrp: ProgramServiceRevenueGrp_
+
+    class Config:
+        extra = "allow"
+
+
+class IRS990ScheduleA_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    SchoolInd: str
+
+
+class IRS990ScheduleD_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    LandGrp: Dict[str, Any]
+    BuildingsGrp: Dict[str, Any]
+    EquipmentGrp: Dict[str, Any]
+    TotalBookValueLandBuildingsAmt: str
+
+
+class IRS990ScheduleJ_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    CompensationCommitteeInd: str
+    SeverancePaymentInd: str
+    SupplementalNonqualRtrPlanInd: str
+
+
 class ReturnData_(BaseModel):
     documentCnt: str = Field(alias="@documentCnt")
-    IRS990T: IRS990T_
-    IRS990TScheduleA: List[IRS990TScheduleA_]
+    IRS990: Optional[IRS990_] = None
+    IRS990ScheduleA: Optional[IRS990ScheduleA_] = None
+    IRS990ScheduleD: Optional[IRS990ScheduleD_] = None
+    IRS990ScheduleJ: Optional[IRS990ScheduleJ_] = None
+    IRS990T: Optional[IRS990T_] = None
+    IRS990TScheduleA: Optional[List[IRS990TScheduleA_]] = None
+
+    # Allow anything to be missing
+    class Config:
+        extra = "allow"
 
 
 class Return_(BaseModel):
@@ -197,9 +290,42 @@ class Return_(BaseModel):
 class FullFiling(BaseModel):
     Return: Return_
 
-    def get_board_members(self):
-        return [
-            x
-            for x in self.Return.ReturnData.IRS990TScheduleA
-            if x.TradeOrBusinessDesc == "Board Members"
-        ]
+    def get_compensations(self):
+        """
+        Get a list of all reported compensation from Part VII Section A of the
+        990 form.
+
+        See ReturnData.IRS990.Form990PartVIISectionAGrp
+
+        Returns:
+            List[Form990PartVIISectionAGrp_]: List of compensation
+        """
+        return (
+            [
+                person
+                for person in self.Return.ReturnData.IRS990.Form990PartVIISectionAGrp
+            ]
+            if self.Return.ReturnData.IRS990
+            and self.Return.ReturnData.IRS990.Form990PartVIISectionAGrp
+            else []
+        )
+
+    def get_contractor_compensation(self):
+        """
+        Get a list of all reported compensation from Part VII Section A of the
+        990 form.
+
+        See ReturnData.IRS990.ContractorCompensationGrp
+
+        Returns:
+            List[ContractorCompensationGrp_]: List of compensation
+        """
+        return (
+            [
+                contractor
+                for contractor in self.Return.ReturnData.IRS990.ContractorCompensationGrp
+            ]
+            if self.Return.ReturnData.IRS990
+            and self.Return.ReturnData.IRS990.ContractorCompensationGrp
+            else []
+        )
