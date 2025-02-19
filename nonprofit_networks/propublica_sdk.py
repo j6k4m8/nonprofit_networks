@@ -4,14 +4,14 @@ import os
 import json
 import time
 import httpx
+import re
 import zipfile
 import pandas as pd
 from io import BytesIO
-from pathlib import Path
 from datetime import datetime
 import xml.etree.ElementTree
 from typing import Optional, Dict, Any, List, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import xmltodict
 from .response_types import FullFiling
 
@@ -257,7 +257,7 @@ class ProPublicaClient:
         self,
         ein: str,
         year: Union[int, str],
-        month: Union[int, str],
+        month: Union[int, str] | None = None,
         as_json: bool = False,
     ) -> Optional[Dict]:
         """
@@ -279,6 +279,62 @@ class ProPublicaClient:
             raise ValueError(
                 "Only filings from 2021 and later are available through this API at the moment. In 2021 the IRS switched to a new batch storage system which is currently supported."
             )
+
+        # If month == 12, maybe we can get it from the propublica API...
+        # First try the cache
+        if month is None:
+            self._debug(
+                f"Month not provided, trying to get XML file from ProPublica API"
+            )
+            cache_dir = os.path.join(
+                self.cache_directory, "nonprofits", "download-xml", str(year)
+            )
+            cache_file = os.path.join(cache_dir, f"{ein}-{year}-{month}.xml")
+            if os.path.exists(cache_file):
+                self._debug(f"Found cached XML file at {cache_file}")
+                with open(cache_file, "r") as f:
+                    return xmltodict.parse(f.read())
+            # If not in cache, try to get it from the propublica API
+            self._debug(f"Downloading XML file for EIN {ein} in {year}")
+
+            url = "https://projects.propublica.org/nonprofits/organizations/{}".format(
+                ein
+            )
+            self._debug(f"Getting XML file from {url}")
+            response = httpx.get(url)
+            response.raise_for_status()
+
+            # Find all "a.btn" where href starts with /nonprofits/download-xml
+            xml_links = re.findall(
+                r'<a class="btn" href="(/nonprofits/download-xml[^"]*)"', response.text
+            )
+
+            # Find the link that matches the year and month
+            for xml_link in xml_links:
+                self._debug(
+                    f"Checking if {xml_link} starts with /nonprofits/download-xml?object_id={year}"
+                )
+                if xml_link.startswith(f"/nonprofits/download-xml?object_id={year}"):
+                    xml_url = f"https://projects.propublica.org{xml_link}"
+                    self._debug(f"Downloading XML file from {xml_url}")
+
+                    # This is a redirect, so we need to follow it
+                    response = httpx.get(xml_url)
+                    xml_url = response.headers["Location"]
+                    self._debug(f"Following redirect to {xml_url}")
+
+                    response = httpx.get(xml_url)
+                    res = xmltodict.parse(response.text)
+                    # Save to cache at {cache}/nonprofits/download-xml/{year}/{ein}-{year}-{month}.xml
+                    cache_dir = os.path.join(
+                        self.cache_directory, "nonprofits", "download-xml", str(year)
+                    )
+                    os.makedirs(cache_dir, exist_ok=True)
+                    cache_file = os.path.join(cache_dir, f"{ein}-{year}-{month}.xml")
+                    self._debug(f"Saving XML file to cache at {cache_file}")
+                    with open(cache_file, "w") as f:
+                        f.write(response.text)
+                    return res
 
         ein = self._normalized_ein_pattern(ein)
         # Get the index data for the year

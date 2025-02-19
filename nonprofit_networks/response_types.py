@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel, Field, field_validator
 
 
 class Address_(BaseModel):
@@ -74,10 +74,10 @@ class ReturnHeader_(BaseModel):
     TaxPeriodBeginDt: str
     Filer: Filer_
     BusinessOfficerGrp: BusinessOfficerGrp_
-    SigningOfficerGrp: SigningOfficerGrp_
+    SigningOfficerGrp: Optional[SigningOfficerGrp_] = None
     IRSResponsiblePrtyInfoCurrInd: str
     PreparerPersonGrp: PreparerPersonGrp_
-    AdditionalFilerInformation: AdditionalFilerInformation_
+    AdditionalFilerInformation: Optional[AdditionalFilerInformation_] = None
     TaxYr: str
     BuildTS: str
 
@@ -95,20 +95,45 @@ class BooksInCareOfDetail_(BaseModel):
 
 class Post2017NOLCarryoverGrp_(BaseModel):
     PrincipalBusinessActivityCd: str
-    AvlblPost2017NOLCarryoverAmt: str
+    AvlblPost2017NOLCarryoverAmt: Union[str, float]
+
+    @field_validator("AvlblPost2017NOLCarryoverAmt", mode="before")
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+
+class NetOperatingLossDeductionAmt_(BaseModel):
+    referenceDocumentId: str = Field(alias="@referenceDocumentId")
+    text: Union[str, float] = Field(alias="#text")
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
 
 
 class IRS990T_(BaseModel):
     documentId: str = Field(alias="@documentId")
     Organization501IndicatorGrp: Organization501IndicatorGrp_
     BookValueAssetsEOYAmt: str
-    OrgStateCollegeUniversityInd: str
+    OrgStateCollegeUniversityInd: Optional[str] = None
     Form990TScheduleAAttachedCnt: str
     SubsidiaryCorporationInd: str
     BooksInCareOfDetail: BooksInCareOfDetail_
     TotalUBTIComputedAmt: str
     CharitableContributionsDedAmt: str
-    NetOperatingLossDeductionAmt: str
+    NetOperatingLossDeductionAmt: Optional[NetOperatingLossDeductionAmt_] = None
     SpecificDeductionAmt: str
     TotalDeductionAmt: str
     TotalUBTIAmt: str
@@ -120,8 +145,11 @@ class IRS990T_(BaseModel):
     ForeignAccountsQuestionInd: str
     ForeignTrustQuestionInd: str
     AvlblPre2018NOLCarryoverAmt: str
-    Post2017NOLCarryoverGrp: List[Post2017NOLCarryoverGrp_]
-    ChangeInMethodOfAccountingInd: str
+    Post2017NOLCarryoverGrp: Optional[Post2017NOLCarryoverGrp_] = None
+    ChangeInMethodOfAccountingInd: Optional[str] = None
+
+    class Config:
+        extra = "allow"
 
 
 class OtherIncomeAmt_(BaseModel):
@@ -152,12 +180,12 @@ class IRS990TScheduleA_(BaseModel):
     TotUnrltTrdBusIncmAmt: str
     TotUnrltTrdBusIncmExpnssAmt: str
     TotNetUnrltTrdBusIncmAmt: str
-    SalariesAndWagesAmt: str
+    SalariesAndWagesAmt: Optional[str] = None
     EmployeeBenefitProgramAmt: Optional[str] = None
-    OtherDeductionsAmt: Optional[OtherDeductionsAmt_]
+    OtherDeductionsAmt: Optional[OtherDeductionsAmt_] = None
     TotalDeductionsAmt: str
     UBIBeforeNOLDedAmt: str
-    NetOperatingLossDeductionAmt: str
+    NetOperatingLossDeductionAmt: Optional[Union[str, float]] = None
     UnrelatedBusinessTaxblIncmAmt: str
     TotalRentIncomeAmt: str
     TotalRentDeductionsAmt: str
@@ -182,36 +210,75 @@ class IRS990TScheduleA_(BaseModel):
 class Form990PartVIISectionAGrp_(BaseModel):
     PersonNm: str
     TitleTxt: str
-    AverageHoursPerWeekRt: str
-    AverageHoursPerWeekRltdOrgRt: Optional[str] = None
+    AverageHoursPerWeekRt: Union[str, float]
+    AverageHoursPerWeekRltdOrgRt: Optional[Union[str, float]] = None
     IndividualTrusteeOrDirectorInd: Optional[str] = None
     OfficerInd: Optional[str] = None
     KeyEmployeeInd: Optional[str] = None
     HighestCompensatedEmployeeInd: Optional[str] = None
-    ReportableCompFromOrgAmt: str
-    ReportableCompFromRltdOrgAmt: str
-    OtherCompensationAmt: str
+    ReportableCompFromOrgAmt: Union[str, float]
+    ReportableCompFromRltdOrgAmt: Union[str, float]
+    OtherCompensationAmt: Union[str, float]
+
+    @field_validator(
+        "AverageHoursPerWeekRt",
+        "AverageHoursPerWeekRltdOrgRt",
+        "ReportableCompFromOrgAmt",
+        "ReportableCompFromRltdOrgAmt",
+        "OtherCompensationAmt",
+        mode="before",
+    )
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
 
 
 class ContractorCompensationGrp_(BaseModel):
     ContractorName: Dict[str, Any]
     ContractorAddress: Dict[str, Any]
     ServicesDesc: str
-    CompensationAmt: str
+    CompensationAmt: Union[str, float]
+
+    @field_validator("CompensationAmt", mode="before")
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
 
 
 class ProgramServiceRevenueGrp_(BaseModel):
     Desc: str
     BusinessCd: str
-    TotalRevenueColumnAmt: str
-    RelatedOrExemptFuncIncomeAmt: str
+    TotalRevenueColumnAmt: Union[str, float]
+    RelatedOrExemptFuncIncomeAmt: Union[str, float]
+
+    @field_validator(
+        "TotalRevenueColumnAmt", "RelatedOrExemptFuncIncomeAmt", mode="before"
+    )
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
 
 
 class IRS990_(BaseModel):
     documentId: str = Field(alias="@documentId")
     PrincipalOfficerNm: str
     USAddress: Address_
-    GrossReceiptsAmt: str
+    GrossReceiptsAmt: Union[str, float]
     Organization501c3Ind: str
     WebsiteAddressTxt: str
     TypeOfOrganizationCorpInd: str
@@ -222,23 +289,50 @@ class IRS990_(BaseModel):
     VotingMembersIndependentCnt: str
     TotalEmployeeCnt: str
     TotalVolunteersCnt: str
-    CYContributionsGrantsAmt: str
-    CYProgramServiceRevenueAmt: str
-    CYInvestmentIncomeAmt: str
-    CYOtherRevenueAmt: str
-    CYTotalRevenueAmt: str
-    CYGrantsAndSimilarPaidAmt: str
-    CYSalariesCompEmpBnftPaidAmt: str
-    CYTotalFundraisingExpenseAmt: str
-    CYOtherExpensesAmt: str
-    CYTotalExpensesAmt: str
-    CYRevenuesLessExpensesAmt: str
-    TotalAssetsEOYAmt: str
-    TotalLiabilitiesEOYAmt: str
-    NetAssetsOrFundBalancesEOYAmt: str
+    CYContributionsGrantsAmt: Union[str, float]
+    CYProgramServiceRevenueAmt: Union[str, float]
+    CYInvestmentIncomeAmt: Union[str, float]
+    CYOtherRevenueAmt: Union[str, float]
+    CYTotalRevenueAmt: Union[str, float]
+    CYGrantsAndSimilarPaidAmt: Union[str, float]
+    CYSalariesCompEmpBnftPaidAmt: Union[str, float]
+    CYTotalFundraisingExpenseAmt: Union[str, float]
+    CYOtherExpensesAmt: Union[str, float]
+    CYTotalExpensesAmt: Union[str, float]
+    CYRevenuesLessExpensesAmt: Union[str, float]
+    TotalAssetsEOYAmt: Union[str, float]
+    TotalLiabilitiesEOYAmt: Union[str, float]
+    NetAssetsOrFundBalancesEOYAmt: Union[str, float]
     Form990PartVIISectionAGrp: List[Form990PartVIISectionAGrp_]
     ContractorCompensationGrp: List[ContractorCompensationGrp_]
     ProgramServiceRevenueGrp: ProgramServiceRevenueGrp_
+
+    @field_validator(
+        "GrossReceiptsAmt",
+        "CYContributionsGrantsAmt",
+        "CYProgramServiceRevenueAmt",
+        "CYInvestmentIncomeAmt",
+        "CYOtherRevenueAmt",
+        "CYTotalRevenueAmt",
+        "CYGrantsAndSimilarPaidAmt",
+        "CYSalariesCompEmpBnftPaidAmt",
+        "CYTotalFundraisingExpenseAmt",
+        "CYOtherExpensesAmt",
+        "CYTotalExpensesAmt",
+        "CYRevenuesLessExpensesAmt",
+        "TotalAssetsEOYAmt",
+        "TotalLiabilitiesEOYAmt",
+        "NetAssetsOrFundBalancesEOYAmt",
+        mode="before",
+    )
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
 
     class Config:
         extra = "allow"
@@ -264,12 +358,91 @@ class IRS990ScheduleJ_(BaseModel):
     SupplementalNonqualRtrPlanInd: str
 
 
+class DisregardedEntityName_(BaseModel):
+    BusinessNameLine1Txt: str
+
+
+class DirectControllingEntityName_(BaseModel):
+    BusinessNameLine1Txt: str
+
+
+class DisregardedEntitiesGrp_(BaseModel):
+    DisregardedEntityName: DisregardedEntityName_
+    USAddress: Address_
+    EIN: str
+    PrimaryActivitiesTxt: str
+    LegalDomicileStateCd: str
+    DirectControllingEntityName: DirectControllingEntityName_
+
+
+class IdRelatedTaxExemptOrgGrp_(BaseModel):
+    DisregardedEntityName: DisregardedEntityName_
+    USAddress: Address_
+    EIN: str
+    PrimaryActivitiesTxt: str
+    LegalDomicileStateCd: str
+    ExemptCodeSectionTxt: str
+    PublicCharityStatusTxt: Optional[str] = None
+    DirectControllingEntityName: DirectControllingEntityName_
+    ControlledOrganizationInd: str
+
+
+class OtherOrganizationName_(BaseModel):
+    BusinessNameLine1Txt: str
+
+
+class TransactionsRelatedOrgGrp_(BaseModel):
+    OtherOrganizationName: OtherOrganizationName_
+    TransactionTypeTxt: str
+    InvolvedAmt: Union[str, float]
+    MethodOfAmountDeterminationTxt: str
+
+    @field_validator("InvolvedAmt", mode="before")
+    @classmethod
+    def convert_amount_to_float(cls, v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+    InvolvedAmt: Union[str, float]
+
+
+class IRS990ScheduleR_(BaseModel):
+    documentId: str = Field(alias="@documentId")
+    IdDisregardedEntitiesGrp: Optional[List[DisregardedEntitiesGrp_]] = None
+    IdRelatedTaxExemptOrgGrp: Optional[List[IdRelatedTaxExemptOrgGrp_]] = None
+    ReceiptOfIntAnntsRntsRyltsInd: str
+    GiftGrntOrCapContriToOthOrgInd: str
+    GiftGrntCapContriFromOthOrgInd: str
+    LoansOrGuaranteesToOtherOrgInd: str
+    LoansOrGuaranteesFromOthOrgInd: str
+    DivRelatedOrganizationInd: str
+    AssetSaleToOtherOrgInd: str
+    AssetPurchaseFromOtherOrgInd: str
+    AssetExchangeInd: str
+    RentalOfFacilitiesToOthOrgInd: str
+    RentalOfFcltsFromOthOrgInd: str
+    PerformOfServicesForOthOrgInd: str
+    PerformOfServicesByOtherOrgInd: str
+    SharingOfFacilitiesInd: str
+    PaidEmployeesSharingInd: str
+    ReimbursementPaidToOtherOrgInd: str
+    ReimbursementPaidByOtherOrgInd: str
+    TransferToOtherOrgInd: str
+    TransferFromOtherOrgInd: str
+    TransactionsRelatedOrgGrp: Optional[List[TransactionsRelatedOrgGrp_]] = None
+
+
 class ReturnData_(BaseModel):
     documentCnt: str = Field(alias="@documentCnt")
     IRS990: Optional[IRS990_] = None
     IRS990ScheduleA: Optional[IRS990ScheduleA_] = None
     IRS990ScheduleD: Optional[IRS990ScheduleD_] = None
     IRS990ScheduleJ: Optional[IRS990ScheduleJ_] = None
+    IRS990ScheduleR: Optional[IRS990ScheduleR_] = None
     IRS990T: Optional[IRS990T_] = None
     IRS990TScheduleA: Optional[List[IRS990TScheduleA_]] = None
 
@@ -327,5 +500,109 @@ class FullFiling(BaseModel):
             ]
             if self.Return.ReturnData.IRS990
             and self.Return.ReturnData.IRS990.ContractorCompensationGrp
+            else []
+        )
+
+    def get_total_revexp(self):
+        """
+        Get the total revenue and expenses from the 990 form.
+
+        Returns:
+            Tuple[float, float]: Total revenue and expenses
+        """
+        return (
+            (
+                self.Return.ReturnData.IRS990.CYTotalRevenueAmt,
+                self.Return.ReturnData.IRS990.CYTotalExpensesAmt,
+            )
+            if self.Return.ReturnData.IRS990
+            else (None, None)
+        )
+
+    def get_net_assets(self):
+        """
+        Get the net assets from the 990 form.
+
+        # NetAssetsOrFundBalancesEOYAmt
+
+        Returns:
+            float: Net assets
+
+        """
+        return (
+            self.Return.ReturnData.IRS990.NetAssetsOrFundBalancesEOYAmt
+            if self.Return.ReturnData.IRS990
+            else None
+        )
+
+    def get_rent_income(self):
+        """
+        Get a list of rent income from the 990-T form.
+
+        See Schedule A Part I
+
+        Returns:
+            List[RentIncomePropertyGrp_]: List of rent income
+        """
+        return (
+            [rent for rent in self.Return.ReturnData.IRS990TScheduleA]
+            if self.Return.ReturnData.IRS990TScheduleA
+            else []
+        )
+
+    def get_disregarded_entities(self):
+        """
+        Get a list of disregarded entities from the 990-T form.
+
+        See Schedule R Part I, and IdDisregardedEntitiesGrp
+
+        Returns:
+            List[DisregardedEntitiesGrp_]: List of disregarded entities
+        """
+        return (
+            [
+                entity
+                for entity in self.Return.ReturnData.IRS990ScheduleR.IdDisregardedEntitiesGrp
+            ]
+            if self.Return.ReturnData.IRS990ScheduleR
+            and self.Return.ReturnData.IRS990ScheduleR.IdDisregardedEntitiesGrp
+            else []
+        )
+
+    def get_related_tax_exempt_orgs(self):
+        """
+        Get a list of related tax exempt orgs from the 990-T form.
+
+        See Schedule R Part II, and IdRelatedTaxExemptOrgGrp
+
+        Returns:
+            List[IdRelatedTaxExemptOrgGrp_]: List of related tax exempt orgs
+        """
+        return (
+            [
+                org
+                for org in self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
+            ]
+            if self.Return.ReturnData.IRS990ScheduleR
+            and self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
+            else []
+        )
+
+    def get_transactions_related_orgs(self):
+        """
+        Get a list of transactions with related orgs from the 990-T form.
+
+        See Schedule R Part III, and TransactionsRelatedOrgGrp
+
+        Returns:
+            List[TransactionsRelatedOrgGrp_]: List of transactions with related orgs
+        """
+        return (
+            [
+                transaction
+                for transaction in self.Return.ReturnData.IRS990ScheduleR.TransactionsRelatedOrgGrp
+            ]
+            if self.Return.ReturnData.IRS990ScheduleR
+            and self.Return.ReturnData.IRS990ScheduleR.TransactionsRelatedOrgGrp
             else []
         )
