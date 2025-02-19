@@ -259,7 +259,7 @@ class ProPublicaClient:
         year: Union[int, str],
         month: Union[int, str] | None = None,
         as_json: bool = False,
-    ) -> Optional[Dict]:
+    ) -> FullFiling:
         """
         Get the complete filing data for an organization, including the full XML content.
         Will attempt to download data if not found in cache.
@@ -271,6 +271,7 @@ class ProPublicaClient:
 
         Returns:
             Dict containing the parsed XML data
+            FullFiling object if as_json is False
         """
         year = int(year) if isinstance(year, str) else year
         month = int(month) if isinstance(month, str) else month
@@ -284,7 +285,7 @@ class ProPublicaClient:
         # First try the cache
         if month is None:
             self._debug(
-                f"Month not provided, trying to get XML file from ProPublica API"
+                "Month not provided, trying to get XML file from ProPublica API"
             )
             cache_dir = os.path.join(
                 self.cache_directory, "nonprofits", "download-xml", str(year)
@@ -293,7 +294,10 @@ class ProPublicaClient:
             if os.path.exists(cache_file):
                 self._debug(f"Found cached XML file at {cache_file}")
                 with open(cache_file, "r") as f:
-                    return xmltodict.parse(f.read())
+                    res = xmltodict.parse(f.read())
+                    if as_json:
+                        return res
+                    return FullFiling(**res)
             # If not in cache, try to get it from the propublica API
             self._debug(f"Downloading XML file for EIN {ein} in {year}")
 
@@ -334,7 +338,10 @@ class ProPublicaClient:
                     self._debug(f"Saving XML file to cache at {cache_file}")
                     with open(cache_file, "w") as f:
                         f.write(response.text)
-                    return res
+
+                    if as_json:
+                        return res
+                    return FullFiling(**res)
 
         ein = self._normalized_ein_pattern(ein)
         # Get the index data for the year
@@ -397,7 +404,7 @@ class ProPublicaClient:
 
         return data
 
-    def search(self, query: str, page: int = 0) -> SearchResponse:
+    def _paginated_search(self, query: str, page: int = 0) -> SearchResponse:
         """
         Search for a query in the ProPublica database.
 
@@ -411,6 +418,39 @@ class ProPublicaClient:
         params = {"q": query, "page": page}
         data = self._get("search.json", params)
         return SearchResponse(**data)
+
+    def search(
+        self, query: str, state: str | None = None, city: str | None = None
+    ) -> SearchResponse:
+        """
+        Search for a query in the ProPublica database.
+
+        Args:
+            query (str): The search query string.
+
+        Returns:
+            SearchResponse: An object containing the search results.
+        """
+        # Depagination:
+        page = 0
+        results = self._paginated_search(query, page)
+        while results.cur_page < results.num_pages:
+            page += 1
+            next_results = self._paginated_search(query, page)
+            results.organizations.extend(next_results.organizations)
+            results.cur_page = next_results.cur_page
+
+        # Filter by state and city if provided
+        if state:
+            results.organizations = [
+                org for org in results.organizations if org.state == state
+            ]
+        if city:
+            results.organizations = [
+                org for org in results.organizations if org.city == city
+            ]
+
+        return results
 
     def get_filings(self, ein: str) -> list[Filing]:
         """

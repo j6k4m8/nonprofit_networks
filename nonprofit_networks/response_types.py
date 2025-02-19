@@ -304,8 +304,10 @@ class IRS990_(BaseModel):
     TotalLiabilitiesEOYAmt: Union[str, float]
     NetAssetsOrFundBalancesEOYAmt: Union[str, float]
     Form990PartVIISectionAGrp: List[Form990PartVIISectionAGrp_]
-    ContractorCompensationGrp: List[ContractorCompensationGrp_]
-    ProgramServiceRevenueGrp: ProgramServiceRevenueGrp_
+    ContractorCompensationGrp: Optional[
+        Union[List[ContractorCompensationGrp_], ContractorCompensationGrp_]
+    ] = None
+    ProgramServiceRevenueGrp: Optional[ProgramServiceRevenueGrp_] = None
 
     @field_validator(
         "GrossReceiptsAmt",
@@ -340,13 +342,13 @@ class IRS990_(BaseModel):
 
 class IRS990ScheduleA_(BaseModel):
     documentId: str = Field(alias="@documentId")
-    SchoolInd: str
+    SchoolInd: Optional[str] = None
 
 
 class IRS990ScheduleD_(BaseModel):
     documentId: str = Field(alias="@documentId")
-    LandGrp: Dict[str, Any]
-    BuildingsGrp: Dict[str, Any]
+    LandGrp: Optional[Dict[str, Any]] = None
+    BuildingsGrp: Optional[Dict[str, Any]] = None
     EquipmentGrp: Dict[str, Any]
     TotalBookValueLandBuildingsAmt: str
 
@@ -383,7 +385,7 @@ class IdRelatedTaxExemptOrgGrp_(BaseModel):
     LegalDomicileStateCd: str
     ExemptCodeSectionTxt: str
     PublicCharityStatusTxt: Optional[str] = None
-    DirectControllingEntityName: DirectControllingEntityName_
+    DirectControllingEntityName: Optional[DirectControllingEntityName_] = None
     ControlledOrganizationInd: str
 
 
@@ -493,15 +495,16 @@ class FullFiling(BaseModel):
         Returns:
             List[ContractorCompensationGrp_]: List of compensation
         """
-        return (
-            [
-                contractor
-                for contractor in self.Return.ReturnData.IRS990.ContractorCompensationGrp
-            ]
-            if self.Return.ReturnData.IRS990
-            and self.Return.ReturnData.IRS990.ContractorCompensationGrp
-            else []
-        )
+        if (
+            not self.Return.ReturnData.IRS990
+            or not self.Return.ReturnData.IRS990.ContractorCompensationGrp
+        ):
+            return []
+
+        contractors = self.Return.ReturnData.IRS990.ContractorCompensationGrp
+        if isinstance(contractors, list):
+            return contractors
+        return [contractors]
 
     def get_total_revexp(self):
         """
@@ -605,4 +608,17 @@ class FullFiling(BaseModel):
             if self.Return.ReturnData.IRS990ScheduleR
             and self.Return.ReturnData.IRS990ScheduleR.TransactionsRelatedOrgGrp
             else []
+        )
+
+    def get_description(self):
+        """
+        Get the description of the organization from the 990 form.
+
+        Returns:
+            str: Description of the organization
+        """
+        return (
+            self.Return.ReturnData.IRS990.ActivityOrMissionDesc
+            if self.Return.ReturnData.IRS990
+            else None
         )
