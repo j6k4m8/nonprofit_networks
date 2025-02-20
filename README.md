@@ -64,4 +64,70 @@ See also,
 
 ## Network Traversal
 
-[Coming soon]
+### Grantmakers
+
+This tool makes it easy to traverse the network of grantmaking organizations:
+
+```python
+from nonprofit_networks import ProPublicaClient
+from nonprofit_networks.network_builder import GrantmakerNetworkBuilder
+
+client = ProPublicaClient()
+org = client.search(...).organizations[0]
+
+grant_net = GrantmakerNetworkBuilder(client)
+grant_net.build_network(org.ein, depth=2, year=2023)
+```
+
+These networks have vertices of organizations, and the edges have an `amount` attribute that represents the amount of the grant.
+
+```python
+longest_path = nx.dag_longest_path(grant_net.graph)
+    print("Longest path:")
+    for i in range(len(longest_path) - 1):
+        node = longest_path[i]
+        next_node = longest_path[i + 1]
+        amount = grant_net.graph[node][next_node][0]["grant"].CashGrantAmt
+        print(
+            # f"{grant_net.graph.nodes[node]['filing'].get_name()} "
+            f"${amount:,.2f} -> "
+            f"{grant_net.graph.nodes[next_node]['filing'].get_name()}"
+        )
+```
+
+```
+Longest Path:
+
+Donor's Trust →
+    $12,727,215.00 → BRADLEY IMPACT FUND INC
+    $35,000.00 → STATE POLICY NETWORK
+    $125,000.00 → Center of the American Experiment
+    $109,000.00 → JUDICIAL WATCH INC
+    $5,000.00 → COALITIONS FOR AMERICA
+```
+
+(Note that in this example it is clear that the `amount` does not all come from the same parent organization or from the same grant, since of course later edges can have larger dollar amounts than earlier edges. While this is useful for "tracing the money", it is not useful for understanding the flow of individual grant allocations.)
+
+You can render these graphs with, for example,
+
+```python
+import networkx as nx
+import matplotlib.pyplot as plt
+
+sanitized_graph = grant_net.graph.copy()
+# Remove anything with net_assets == None, and print them
+for node in list(sanitized_graph.nodes):
+    if sanitized_graph.nodes[node]['filing'].get_net_assets() is None:
+        print(f"Removing {sanitized_graph.nodes[node]['filing'].get_name()}")
+        sanitized_graph.remove_node(node)
+
+node_sizes = [(sanitized_graph.nodes[node]['filing'].get_net_assets())/100000 for node in sanitized_graph.nodes]
+node_colors = [(sanitized_graph.nodes[node]['filing'].get_total_revexp()[0])/100000 for node in sanitized_graph.nodes]
+
+plt.figure(figsize=(16, 16), dpi=100)
+pos = nx.spring_layout(sanitized_graph, weight="amount")
+nx.draw_networkx_labels(sanitized_graph, pos, labels={node: sanitized_graph.nodes[node]['filing'].get_name() + "\n\n" for node in sanitized_graph.nodes}, font_size=8)
+edges = nx.draw_networkx_edges(sanitized_graph, pos, edge_color='gray', alpha=0.5, node_size=node_sizes, width=[sanitized_graph.edges[edge]['amount']**0.1 for edge in sanitized_graph.edges])
+nx.draw_networkx_nodes(sanitized_graph, node_size=node_sizes, node_color=node_colors, cmap='viridis', pos=pos)
+plt.show()
+```
