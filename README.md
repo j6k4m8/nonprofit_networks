@@ -2,6 +2,8 @@
 
 This codebase is a collection of tools to analyze and understand nonprofit organizations in the United States.
 
+[![Run on colab](https://img.shields.io/badge/Run_on-Colab-Red?style=for-the-badge&logo=google)](https://colab.research.google.com/github/j6k4m8/nonprofit_networks/blob/main/docs/Example-Grassroots.ipynb) [![Static Badge](https://img.shields.io/badge/No_nazis_allowed-yay-green?style=for-the-badge)](https://github.com/j6k4m8/nonprofit_networks/blob/main/LICENSE#L9)
+
 This codebase is separated into three components:
 
 ## Nonprofit Search
