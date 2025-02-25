@@ -27,7 +27,9 @@ class GrantmakerNetworkBuilder(NetworkBuilder):
         if depth == 0:
             return
         filing = self.client.get_full_filing(ein, year)
-        self.graph.add_node(ein, filing=filing, name=filing.get_name())
+        self.graph.add_node(
+            ein, filing=filing, name=filing.get_name(), __labels__=set("Organization")
+        )
         for grant in filing.get_grant_recipients():
             if not grant.RecipientEIN or not isinstance(grant.RecipientEIN, str):
                 continue
@@ -35,7 +37,10 @@ class GrantmakerNetworkBuilder(NetworkBuilder):
                 try:
                     filing = self.client.get_full_filing(grant.RecipientEIN, year)
                     self.graph.add_node(
-                        grant.RecipientEIN, filing=filing, name=filing.get_name()
+                        grant.RecipientEIN,
+                        filing=filing,
+                        name=filing.get_name(),
+                        __labels__=set("Organization"),
                     )
                 except Exception:
                     continue
@@ -45,5 +50,6 @@ class GrantmakerNetworkBuilder(NetworkBuilder):
                 grant=grant,
                 amount=grant.CashGrantAmt,
                 memo=grant.PurposeOfGrantTxt,
+                __labels__=set("GrantFunded"),
             )
             self._build_network(grant.RecipientEIN, depth - 1, year)
