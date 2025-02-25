@@ -78,6 +78,28 @@ class ProPublicaClient:
         if self.debug:
             print(*args, **kwargs)
 
+    def sample_from_irs_indices(
+        self, count: int, years: Optional[List[int]] = None
+    ) -> pd.DataFrame:
+        """
+        Sample a specified number of records from the IRS indices.
+
+        Args:
+            count: The number of records to sample.
+            years: Optional list of years to sample from. If None, samples from all available years.
+
+        Returns:
+            A DataFrame containing the sampled records.
+        """
+        if years is None:
+            current_year = datetime.now().year
+            years = range(2019, current_year + 1)
+
+        index_data = pd.concat(
+            [self._get_index_data(year) for year in years], ignore_index=True
+        )
+        return index_data.sample(n=count)
+
     def download_irs_indices(self, years: Optional[List[int]] = None) -> None:
         """
         Downloads IRS index files if they don't exist in the cache.
