@@ -45,7 +45,8 @@ class BusinessOfficerGrp_(BaseModel):
     PersonNm: str
     PersonTitleTxt: str
     SignatureDt: str
-    DiscussWithPaidPreparerInd: str
+    DiscussWithPaidPreparerInd: Optional[str] = None
+    PhoneNum: Optional[str] = None
 
 
 class PersonFullName_(BaseModel):
@@ -264,16 +265,18 @@ class IRS990_(BaseModel):
     PrincipalOfficerNm: str
     USAddress: Address_
     GrossReceiptsAmt: Union[str, float]
-    Organization501c3Ind: str
-    WebsiteAddressTxt: str
-    TypeOfOrganizationCorpInd: str
+    Organization501c3Ind: Optional[str] = None
+    Organization501cInd: Optional[Dict[str, Any]] = None
+    WebsiteAddressTxt: Optional[str] = None
+    TypeOfOrganizationCorpInd: Optional[str] = None
+    TypeOfOrganizationTrustInd: Optional[str] = None
     FormationYr: str
     LegalDomicileStateCd: str
     ActivityOrMissionDesc: str
     VotingMembersGoverningBodyCnt: str
     VotingMembersIndependentCnt: str
     TotalEmployeeCnt: str
-    TotalVolunteersCnt: str
+    TotalVolunteersCnt: Optional[str] = None
     CYContributionsGrantsAmt: Union[str, float]
     CYProgramServiceRevenueAmt: Union[str, float]
     CYInvestmentIncomeAmt: Union[str, float]
@@ -390,7 +393,9 @@ class TransactionsRelatedOrgGrp_(BaseModel):
 class IRS990ScheduleR_(BaseModel):
     documentId: str = Field(alias="@documentId")
     IdDisregardedEntitiesGrp: Optional[List[DisregardedEntitiesGrp_]] = None
-    IdRelatedTaxExemptOrgGrp: Optional[List[IdRelatedTaxExemptOrgGrp_]] = None
+    IdRelatedTaxExemptOrgGrp: Optional[
+        Union[List[IdRelatedTaxExemptOrgGrp_], IdRelatedTaxExemptOrgGrp_]
+    ] = None
     ReceiptOfIntAnntsRntsRyltsInd: str
     GiftGrntOrCapContriToOthOrgInd: str
     GiftGrntCapContriFromOthOrgInd: str
@@ -412,6 +417,22 @@ class IRS990ScheduleR_(BaseModel):
     TransferFromOtherOrgInd: str
     TransactionsRelatedOrgGrp: Optional[List[TransactionsRelatedOrgGrp_]] = None
 
+    def get_related_tax_exempt_orgs(self):
+        """
+        Get a list of related tax exempt orgs from the 990-T form.
+
+        See Schedule R Part II, and IdRelatedTaxExemptOrgGrp
+
+        Returns:
+            List[IdRelatedTaxExemptOrgGrp_]: List of related tax exempt orgs
+        """
+        if not self.IdRelatedTaxExemptOrgGrp:
+            return []
+
+        if isinstance(self.IdRelatedTaxExemptOrgGrp, list):
+            return self.IdRelatedTaxExemptOrgGrp
+        return [self.IdRelatedTaxExemptOrgGrp]
+
 
 class RecipientBusinessName_(BaseModel):
     BusinessNameLine1Txt: str
@@ -423,13 +444,13 @@ class RecipientTable_(BaseModel):
     RecipientEIN: Optional[str] = None
     IRCSectionDesc: str
     CashGrantAmt: Union[str, float]
-    NonCashAssistanceAmt: Union[str, float]
+    NonCashAssistanceAmt: Union[str, float, None] = None
     PurposeOfGrantTxt: str
 
     @field_validator("CashGrantAmt", "NonCashAssistanceAmt", mode="before")
     @classmethod
     def validate_amounts(cls, v):
-        return convert_amount_to_float(v)
+        return convert_amount_to_float(v) if v is not None else None
 
 
 class SupplementalInformationDetail_(BaseModel):
@@ -444,6 +465,20 @@ class IRS990ScheduleI_(BaseModel):
     Total501c3OrgCnt: str
     TotalOtherOrgCnt: str
     SupplementalInformationDetail: Optional[SupplementalInformationDetail_] = None
+
+    def get_grant_recipients(self):
+        """
+        Get a list of all grant recipients from Schedule I of the 990 form.
+
+        Returns:
+            List[RecipientTable_]: List of grant recipients
+        """
+        if not self.RecipientTable:
+            return []
+
+        if isinstance(self.RecipientTable, list):
+            return self.RecipientTable
+        return [self.RecipientTable]
 
 
 class ReturnData_(BaseModel):
@@ -465,7 +500,7 @@ class ReturnData_(BaseModel):
 class Return_(BaseModel):
     xmlns: str = Field(alias="@xmlns")
     xmlns_xsi: str = Field(alias="@xmlns:xsi")
-    xsi_schemaLocation: str = Field(alias="@xsi:schemaLocation")
+    xsi_schemaLocation: Optional[str] = Field(None, alias="@xsi:schemaLocation")
     returnVersion: str = Field(alias="@returnVersion")
     ReturnHeader: ReturnHeader_
     ReturnData: ReturnData_
@@ -590,15 +625,16 @@ class FullFiling(BaseModel):
         Returns:
             List[IdRelatedTaxExemptOrgGrp_]: List of related tax exempt orgs
         """
-        return (
-            [
-                org
-                for org in self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
-            ]
-            if self.Return.ReturnData.IRS990ScheduleR
-            and self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
-            else []
-        )
+        if (
+            not self.Return.ReturnData.IRS990ScheduleR
+            or not self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
+        ):
+            return []
+
+        orgs = self.Return.ReturnData.IRS990ScheduleR.IdRelatedTaxExemptOrgGrp
+        if isinstance(orgs, list):
+            return orgs
+        return [orgs]
 
     def get_transactions_related_orgs(self):
         """

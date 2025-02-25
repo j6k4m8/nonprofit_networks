@@ -23,8 +23,8 @@ _DEFAULT_CONFIG_PATH = os.path.expanduser(
 class Organization(BaseModel):
     ein: int
     name: str
-    city: str
-    state: str
+    city: Optional[str] = None
+    state: Optional[str] = None
     ntee_code: Optional[str] = None
     score: Optional[float] = None
 
