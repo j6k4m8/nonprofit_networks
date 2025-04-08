@@ -364,14 +364,17 @@ class DisregardedEntitiesGrp_(BaseModel):
 
 class IdRelatedTaxExemptOrgGrp_(BaseModel):
     DisregardedEntityName: DisregardedEntityName_
-    USAddress: Address_
-    EIN: str
-    PrimaryActivitiesTxt: str
-    LegalDomicileStateCd: str
-    ExemptCodeSectionTxt: str
+    USAddress: Optional[Address_] = None
+    EIN: Optional[str] = None
+    PrimaryActivitiesTxt: Optional[str] = None
+    LegalDomicileStateCd: Optional[str] = None
+    ExemptCodeSectionTxt: Optional[str] = None
     PublicCharityStatusTxt: Optional[str] = None
     DirectControllingEntityName: Optional[DirectControllingEntityName_] = None
-    ControlledOrganizationInd: str
+    ControlledOrganizationInd: Optional[str] = None
+
+    class Config:
+        extra = "allow"  # Allow additional fields
 
 
 class OtherOrganizationName_(BaseModel):

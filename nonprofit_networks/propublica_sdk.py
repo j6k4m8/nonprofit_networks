@@ -13,6 +13,7 @@ import xml.etree.ElementTree
 from typing import Optional, Dict, Any, List, Union
 from pydantic import BaseModel
 import xmltodict
+from bs4 import BeautifulSoup  # Import BeautifulSoup
 from .response_types import FullFiling
 
 _DEFAULT_CONFIG_PATH = os.path.expanduser(
@@ -44,6 +45,17 @@ class SearchResponse(BaseModel):
     cur_page: int
     per_page: int
     search_query: Optional[str] = None
+
+
+# Define a new Pydantic model for the scraped data
+class Person(BaseModel):
+    name: str
+    year: Optional[int | str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    title: Optional[str] = None
+    nonprofit: Optional[str] = None
+    nonprofit_ein: Optional[str] = None
 
 
 class ProPublicaClient:
@@ -128,6 +140,130 @@ class ProPublicaClient:
                     self._debug(f"Failed to download IRS index for {year}")
                     # Skip if the file doesn't exist (e.g., future year)
                     continue
+
+    def _scrape_people_page(self, query: str, page: int = 1) -> List[Person]:
+        """
+        Scrape people from the ProPublica website using BeautifulSoup.
+
+        TODO: Horrible. Horrible horrible. BS4 BS. Terrible HTML parsing.
+        I would love if someone could figure out a better way to do this.
+
+        Args:
+            query (str): The search query string.
+
+        Returns:
+            List[Person]: A list of Person objects containing the scraped data.
+        """
+        url = f"https://projects.propublica.org/nonprofits/name_search/index?q={query}&page={page}"
+        self._debug(f"Scraping people from {url}")
+        response = httpx.get(url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        people = []
+
+        # Example parsing logic (adjust based on actual HTML structure)
+        for person in soup.select(".result-row"):
+            name = person.select_one(".result-item__hed").text.strip()
+            city = (
+                person.select_one(".nowrap.text-sub").text.strip()
+                if person.select_one(".nowrap.text-sub")
+                else None
+            )
+            city_year = str(city).split("•")
+            city = city_year[0] if len(city_year) > 0 else None
+            if len(city_year) > 1:
+                year = city_year[1].strip()
+                if year.isdigit():
+                    city = city_year[0].strip()
+                    year = int(year.strip())
+                else:
+                    year = None
+            else:
+                year = None
+
+            city, state = city.split(",") if city else (None, None)
+            city = city.strip() if city else None
+            state = state.strip() if state else None
+
+            title = person.select_one(".margin-right")
+            if title:
+                at = title.select_one("a")
+                title = title.text.strip().split("at\n")[0].strip()
+                if at:
+                    np = at.text.strip().split("\n")[0].strip()
+                    np_url = at["href"]
+                    np_url = (
+                        str(np_url)
+                        if str(np_url).startswith("http")
+                        else ("https://projects.propublica.org" + str(np_url))
+                    )
+                    np_ein = np_url.split("organizations/")[-1]
+                else:
+                    np = None
+                    np_ein = None
+            else:
+                title = None
+                np = None
+                np_ein = None
+
+            people.append(
+                Person(
+                    name=name,
+                    year=year,
+                    city=city,
+                    state=state,
+                    title=title,
+                    nonprofit=np,
+                    nonprofit_ein=np_ein,
+                )
+            )
+
+        return people
+
+    def search_people(
+        self,
+        query: str,
+        state: str | None = None,
+        city: str | None = None,
+        nonprofit_ein: str | None = None,
+        year: int | None = None,
+    ) -> List[Person]:
+        """
+        Search for people in the ProPublica database.
+
+        Args:
+            query (str): The search query string.
+            state (str, optional): The state to filter results by.
+            city (str, optional): The city to filter results by.
+            nonprofit_ein (str, optional): The EIN of the nonprofit to filter results by.
+
+        Returns:
+            List[Person]: A list of Person objects containing the search results.
+        """
+        # Depagination:
+        page = 1
+        people = []
+        while True:
+            results = self._scrape_people_page(query, page)
+            if not results:
+                break
+            people.extend(results)
+            page += 1
+
+        # Filter by state, city, and nonprofit EIN if provided
+        if state:
+            people = [person for person in people if person.state == state]
+        if city:
+            people = [person for person in people if person.city == city]
+        if nonprofit_ein:
+            people = [
+                person for person in people if person.nonprofit_ein == nonprofit_ein
+            ]
+        if year:
+            people = [person for person in people if person.year == year]
+
+        return people
 
     def _get_index_data(self, year: int) -> pd.DataFrame:
         """
